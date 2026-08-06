@@ -1,0 +1,33 @@
+name: MATLAB tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: MATLAB ${{ matrix.release }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        release: [R2021a, latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: ${{ matrix.release }}
+
+      - name: Run unit and integration tests
+        uses: matlab-actions/run-tests@v3
+        with:
+          select-by-folder: tests
+          test-results-junit: test-results/results.xml
+          output-detail: detailed

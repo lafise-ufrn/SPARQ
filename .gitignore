@@ -1,0 +1,18 @@
+# MATLAB editor/build artifacts
+*.asv
+*.m~
+slprj/
+codegen/
+
+# Test and coverage reports
+test-results/
+code-coverage/
+
+# Generated SPARQ state and outputs
+*_clean_reference.mat
+*_clean.mat
+
+# OS/editor metadata
+.DS_Store
+Thumbs.db
+.vscode/

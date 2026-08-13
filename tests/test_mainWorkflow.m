@@ -100,6 +100,36 @@ classdef test_mainWorkflow < matlab.unittest.TestCase
                 "interactive-selection");
         end
 
+        function genericMainSavesAllPlotImages(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            sourceFile = fullfile(folder, 'recording.mat');
+            writeRecording(sourceFile);
+            outputRoot = fullfile(folder, 'SPARQ_results');
+            writeReferenceCacheFixture(fullfile(outputRoot, ...
+                '.reference_cache', 'recording_reference.mat'), ...
+                sourceFile, 400, [0 0.399], [0 0.099]);
+
+            previousVisibility = get(groot, 'DefaultFigureVisible');
+            set(groot, 'DefaultFigureVisible', 'off');
+            figureCleanup = onCleanup(@() cleanUpPlotFigures( ...
+                previousVisibility));
+
+            config = baseConfig(folder);
+            config.plot.enabled = true;
+            batch = SPARQ.internal.runMain(config);
+
+            testCase.verifyEqual(batch.report.Status, "ok");
+            imageFiles = dir(fullfile( ...
+                outputRoot, 'imagens', 'recording_*.png'));
+            testCase.verifyNumElements(imageFiles, 4);
+            testCase.verifyTrue(all([imageFiles.bytes] > 0));
+            testCase.verifyEqual(sort(string({imageFiles.name})), sort([ ...
+                "recording_raw.png", ...
+                "recording_thresholds.png", ...
+                "recording_noise_windows.png", ...
+                "recording_saved_percentage.png"]));
+        end
+
         function genericMainExpandsRealDataIntoIndependentSessions(testCase)
             [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
             sourceFile = fullfile(folder, 'RealData.mat');
@@ -226,4 +256,16 @@ function removeTemporaryFolder(folder)
     if exist(folder, 'dir') == 7
         rmdir(folder, 's');
     end
+end
+
+% ------------------------------------------------------------------------
+function cleanUpPlotFigures(previousVisibility)
+    tags = SPARQ.internal.figureTags();
+    tagFields = fieldnames(tags);
+    for i = 1:numel(tagFields)
+        figures = findall(groot, 'Type', 'figure', ...
+            'Tag', tags.(tagFields{i}));
+        delete(figures);
+    end
+    set(groot, 'DefaultFigureVisible', previousVisibility);
 end

@@ -55,7 +55,7 @@ function batch = runMain(config)
     parameterProvider = @(session, row) ...
         SPARQ.internal.mainParameters(session, config);
     resultCallback = @(session, result, params, row) ...
-        plotResult(session, result, params, row, config);
+        plotResult(session, result, params, row, config, outputRoot);
 
     fprintf(['Processando %d sessao(oes) logica(s) descoberta(s) em ' ...
         '%d fonte(s). Os resultados serao salvos em:\n%s\n\n'], ...
@@ -139,9 +139,43 @@ function config = normalizeConfig(config)
 end
 
 % ------------------------------------------------------------------------
-function plotResult(session, result, params, ~, config)
+function plotResult(session, result, params, row, config, outputRoot)
     SPARQ.internal.plotProcessingResult( ...
         session, result, params, config.maxDisplayPointsPerChannel);
+    if params.plot.enabled
+        savePlotImages(row, outputRoot);
+    end
+end
+
+% ------------------------------------------------------------------------
+function savePlotImages(row, outputRoot)
+    relativeFolder = relativeToRoot(row.OutputDirectory, outputRoot);
+    imageFolder = fullfile(outputRoot, 'imagens', relativeFolder);
+    if exist(imageFolder, 'dir') ~= 7
+        mkdir(imageFolder);
+    end
+
+    imageStem = safePathSegment(row.SessionId);
+    if strlength(imageStem) == 0
+        [~, sourceStem] = fileparts(row.SourceFile);
+        imageStem = safePathSegment(sourceStem);
+    end
+
+    tags = SPARQ.internal.figureTags();
+    tagFields = {'overview', 'thresholds', 'noiseWindows', 'summary'};
+    fileSuffixes = {'raw', 'thresholds', 'noise_windows', ...
+        'saved_percentage'};
+    drawnow;
+    for i = 1:numel(tagFields)
+        figureHandle = findall(groot, 'Type', 'figure', ...
+            'Tag', tags.(tagFields{i}));
+        if isempty(figureHandle)
+            continue;
+        end
+        imageFile = fullfile(imageFolder, sprintf('%s_%s.png', ...
+            imageStem, fileSuffixes{i}));
+        exportgraphics(figureHandle(1), imageFile);
+    end
 end
 
 % ------------------------------------------------------------------------

@@ -90,14 +90,12 @@ classdef test_mainWorkflow < matlab.unittest.TestCase
                 batch.report.OutputFile, "_clean.mat")));
 
             saved = load(batch.report.OutputFile(1), 'SPARQ_result');
-            cleanSignals = saved.SPARQ_result.result.cleanSignals;
-            testCase.verifyClass(cleanSignals.noiseMask, 'logical');
-            testCase.verifySize(cleanSignals.noiseMask, [1 400]);
-            testCase.verifyFalse(isfield(cleanSignals, 'concat'));
-            testCase.verifyFalse(isfield(cleanSignals, 'nan'));
-            testCase.verifyEqual( ...
-                saved.SPARQ_result.provenance.reference.method, ...
-                "interactive-selection");
+            testCase.verifyEqual(fieldnames(saved.SPARQ_result), ...
+                {'noiseMask'; 'samplingRateHz'; 'schemaVersion'});
+            testCase.verifyClass(saved.SPARQ_result.noiseMask, 'logical');
+            testCase.verifySize(saved.SPARQ_result.noiseMask, [1 400]);
+            testCase.verifyEqual(saved.SPARQ_result.samplingRateHz, 1000);
+            testCase.verifyEqual(saved.SPARQ_result.schemaVersion, "2.0");
         end
 
         function genericMainSavesAllPlotImages(testCase)

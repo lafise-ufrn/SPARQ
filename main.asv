@@ -12,7 +12,7 @@
 %% =========================== EDITE AQUI ================================
 
 % Pasta que contem os arquivos .mat. Deixe "" para escolher em uma janela.
-config.dataFolder = "";
+config.dataFolder = "C:\Users\Isaac\Downloads\matlab_testing_data\exp_esteira_fadiga\session 2";
 
 % Todos os arquivos com este padrao, inclusive em subpastas, serao lidos.
 config.filePattern = "*.mat";
@@ -24,7 +24,7 @@ config.inputFormat = "auto";
 config.loader.lfpVariable = "LFP";              % matriz de LFP
 config.loader.samplingRateVariable = "fs";      % frequencia em Hz
 % Para usar uma frequencia fixa, deixe a linha acima = "" e informe, ex.: 1000.
-config.loader.samplingRateHz = [];
+config.loader.samplingRateHz = []; % [] por padrao
 config.loader.timeVariable = "";                 
 % opcional, var do tempo em segundos. caso permaneca "", a biblioteca cria
 % automaticamente.
@@ -47,11 +47,12 @@ config.detection.mergeGapSamples = [];            % padrao: 100 amostras
 config.detection.settleWindowSamples = [];        % padrao: 50 amostras
 config.detection.settleToleranceStd = [];         % padrao: 2
 
-% SPARQ_result sempre salva noiseMask, samplingRateHz e schemaVersion.
-% As matrizes abaixo sao opcionais. Se alguma for ativada, channels e
-% signalUnits tambem sao salvos para identificar suas linhas e seus valores.
-config.output.includeConcat = false;    % sinais bons concatenados
-config.output.includeNaN = false;       % sinais ruidosos marcados em NaN
+% Saidas: noiseMask e sempre salva (vetor logico -> 0 = nao identificado como ruido;
+% 1 = ruido). 
+% As duas matrizes abaixo sao opcionais. uma retorna o sinal concatenado e
+% a outra o sinal completo com os ruidos trocados por NaNs.
+config.output.includeConcat = false;
+config.output.includeNaN = false;
 
 % Resultados sao gravados em uma subpasta dentro da pasta de dados definida
 % anteriormente.

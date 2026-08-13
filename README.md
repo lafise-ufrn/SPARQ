@@ -1,7 +1,7 @@
 # SPARQ
 
 Biblioteca MATLAB para identificar trechos com ruído em gravações multicanal
-de LFP. O uso comum é feito pelo script [`main.m`](main.m). Não é necessário
+de sinais eletrofisiológicos. O uso comum é feito pelo script [`main.m`](main.m). Não é necessário
 chamar diretamente as funções internas da biblioteca.
 
 ## Requisitos

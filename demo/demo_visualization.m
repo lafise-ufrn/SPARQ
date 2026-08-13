@@ -14,7 +14,7 @@
 %
 % EDITE os caminhos abaixo para apontar para seus dados antes de executar.
 
-matFilePath = fullfile('path', 'to', 'legacy_data', 'subject', 'recording_aversivo.mat');
+matFilePath = fullfile("C:\pesquisa\dados_eletro\exp_esteira_odor\outputs\rato2\rato2_aversivo.mat");
 referenceCacheDir = fullfile('path', 'to', 'legacy_data', 'subject');
 
 params = defaultNoiseParameters();

@@ -12,7 +12,7 @@
 %% =========================== EDITE AQUI ================================
 
 % Pasta que contem os arquivos .mat. Deixe "" para escolher em uma janela.
-config.dataFolder = "";
+config.dataFolder = "C:\Users\Isaac\Downloads\matlab_testing_data\exp_esteira_fadiga\session 2";
 
 % Todos os arquivos com este padrao, inclusive em subpastas, serao lidos.
 config.filePattern = "*.mat";
@@ -21,10 +21,10 @@ config.filePattern = "*.mat";
 % mapeamento manual.
 config.inputFormat = "auto";
 
-config.loader.lfpVariable = "LFP";              % matriz de LFP
-config.loader.samplingRateVariable = "fs";      % frequencia em Hz
+config.loader.lfpVariable = "local_field_potential";              % matriz de LFP
+config.loader.samplingRateVariable = "";      % frequencia em Hz
 % Para usar uma frequencia fixa, deixe a linha acima = "" e informe, ex.: 1000.
-config.loader.samplingRateHz = [];
+config.loader.samplingRateHz = 1000; % [] por padrao
 config.loader.timeVariable = "";                 
 % opcional, var do tempo em segundos. caso permaneca "", a biblioteca cria
 % automaticamente.

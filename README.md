@@ -108,10 +108,10 @@ Para abrir o resultado:
 ```matlab
 arquivo = load("caminho_para_o_resultado_clean.mat");
 resultado = arquivo.SPARQ_result.result;
-mascara = resultado.cleanSignals.noiseMask;
+mascara = resultado.noise.mask;
 ```
 
-`noiseMask` sempre é salva. Ela possui um valor para cada amostra original:
+`noise.mask` sempre é salva. Ela possui um valor para cada amostra original:
 
 1. `0` significa que a amostra não foi identificada como ruído.
 

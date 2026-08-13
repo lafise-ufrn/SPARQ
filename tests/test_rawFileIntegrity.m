@@ -83,6 +83,7 @@ classdef test_rawFileIntegrity < matlab.unittest.TestCase
             before = fileSnapshot(sourcePath);
             result.sourceFile = string(sourcePath);
             result.cleanSignals.noiseMask = false(1, 10);
+            result.samplingRateHz = 1000;
             params = SPARQ.processingOptions(1);
             provenance.source = SPARQ.internal.sourceIdentity(sourcePath);
 
@@ -115,6 +116,7 @@ classdef test_rawFileIntegrity < matlab.unittest.TestCase
             writeRecording(destination);
             before = fileSnapshot(destination);
             result.cleanSignals.noiseMask = false(1, 10);
+            result.samplingRateHz = 1000;
             params = SPARQ.processingOptions(1);
 
             testCase.verifyError(@() SPARQ.io.saveResult( ...

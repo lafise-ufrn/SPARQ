@@ -59,13 +59,13 @@ classdef test_genericBatch < matlab.unittest.TestCase
             testCase.verifyTrue(isfile(batch.report.OutputFile));
 
             saved = load(batch.report.OutputFile, 'SPARQ_result');
-            testCase.verifyEqual(saved.SPARQ_result.schemaVersion, "1.0");
-            testCase.verifyEqual(saved.SPARQ_result.software.status, "beta");
+            testCase.verifyEqual(fieldnames(saved.SPARQ_result), ...
+                {'noiseMask'; 'samplingRateHz'; 'schemaVersion'});
             testCase.verifyEqual( ...
-                saved.SPARQ_result.result.cleanSignals.noiseMask, ...
+                saved.SPARQ_result.noiseMask, ...
                 batch.results{1}.cleanSignals.noiseMask);
-            testCase.verifyEqual( ...
-                saved.SPARQ_result.provenance.source.exists, true);
+            testCase.verifyEqual(saved.SPARQ_result.samplingRateHz, fs);
+            testCase.verifyEqual(saved.SPARQ_result.schemaVersion, "2.0");
         end
 
         function manifestHasNoAutomaticReferenceColumns(testCase)
@@ -90,6 +90,7 @@ classdef test_genericBatch < matlab.unittest.TestCase
             [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
             outputPath = fullfile(folder, 'result.mat');
             result.cleanSignals.noiseMask = false(1, 10);
+            result.samplingRateHz = 1000;
             params = SPARQ.processingOptions(1);
 
             SPARQ.io.saveResult(result, outputPath, params, struct());
@@ -97,6 +98,56 @@ classdef test_genericBatch < matlab.unittest.TestCase
             testCase.verifyError(@() SPARQ.io.saveResult( ...
                 result, outputPath, params, struct()), ...
                 'SPARQ:io:saveResult:fileExists');
+        end
+
+        function optionalSignalsSaveOnlyTheirEssentialMetadata(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            outputPath = fullfile(folder, 'result.mat');
+            result.cleanSignals.noiseMask = logical([0 1 0]);
+            result.cleanSignals.nan = [1 NaN 3; 4 NaN 6];
+            result.cleanSignals.concat = [1 3; 4 6];
+            result.cleanSignals.channels = [2 4];
+            result.samplingRateHz = 1000;
+            result.signalUnits = "uV";
+            params = SPARQ.processingOptions(4);
+
+            SPARQ.io.saveResult(result, outputPath, params, struct());
+            saved = load(outputPath, 'SPARQ_result');
+
+            testCase.verifyEqual(fieldnames(saved.SPARQ_result), ...
+                {'noiseMask'; 'nan'; 'concat'; 'samplingRateHz'; ...
+                 'channels'; 'signalUnits'; 'schemaVersion'});
+            testCase.verifyEqual(saved.SPARQ_result.noiseMask, ...
+                result.cleanSignals.noiseMask);
+            testCase.verifyEqual(saved.SPARQ_result.nan, ...
+                result.cleanSignals.nan);
+            testCase.verifyEqual(saved.SPARQ_result.concat, ...
+                result.cleanSignals.concat);
+            testCase.verifyEqual(saved.SPARQ_result.channels, [2 4]);
+            testCase.verifyEqual(saved.SPARQ_result.signalUnits, "uV");
+        end
+
+        function legacyResultCanBeReplacedByMinimalResult(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            outputPath = fullfile(folder, 'result.mat');
+            SPARQ_result.schemaVersion = "1.0";
+            SPARQ_result.software = struct();
+            SPARQ_result.processedAtUtc = "";
+            SPARQ_result.result = struct();
+            SPARQ_result.parameters = struct();
+            SPARQ_result.provenance = struct();
+            save(outputPath, 'SPARQ_result');
+
+            result.cleanSignals.noiseMask = false(1, 10);
+            result.samplingRateHz = 1000;
+            params = SPARQ.processingOptions(1);
+            SPARQ.io.saveResult(result, outputPath, params, struct(), ...
+                'Overwrite', true);
+
+            saved = load(outputPath, 'SPARQ_result');
+            testCase.verifyEqual(fieldnames(saved.SPARQ_result), ...
+                {'noiseMask'; 'samplingRateHz'; 'schemaVersion'});
+            testCase.verifyEqual(saved.SPARQ_result.schemaVersion, "2.0");
         end
 
     end

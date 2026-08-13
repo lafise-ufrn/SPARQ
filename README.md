@@ -100,18 +100,26 @@ calibração original.
 ## Resultados
 
 Cada gravação processada gera um arquivo com nome terminado em `_clean.mat`.
-Dentro dele, a variável `SPARQ_result` contém o resultado, os parâmetros e a
-origem dos dados.
+Dentro dele existe somente a variável `SPARQ_result`, já organizada para uso
+direto em análises.
 
 Para abrir o resultado:
 
 ```matlab
 arquivo = load("caminho_para_o_resultado_clean.mat");
-resultado = arquivo.SPARQ_result.result;
-mascara = resultado.noise.mask;
+resultado = arquivo.SPARQ_result;
+mascara = resultado.noiseMask;
 ```
 
-`noise.mask` sempre é salva. Ela possui um valor para cada amostra original:
+Por padrão, `SPARQ_result` contém somente:
+
+1. `noiseMask`, um vetor lógico com um valor para cada amostra original.
+
+2. `samplingRateHz`, necessário para converter amostras em segundos.
+
+3. `schemaVersion`, necessário para identificar o formato do resultado.
+
+Em `noiseMask`:
 
 1. `0` significa que a amostra não foi identificada como ruído.
 
@@ -124,9 +132,14 @@ config.output.includeConcat = true;
 config.output.includeNaN = true;
 ```
 
-`concat` contém apenas as amostras não marcadas como ruído. Seu eixo deixa de
-representar tempo contínuo. `nan` mantém o tamanho e o eixo temporal do sinal,
-substituindo por `NaN` as amostras marcadas.
+Quando ativada, `nan` mantém o número original de amostras e substitui por
+`NaN` aquelas marcadas como ruído. Quando ativada, `concat` contém somente as
+amostras em que `noiseMask` vale `0`, na mesma ordem em que aparecem na
+gravação. O índice de uma coluna de `concat` não representa tempo contínuo.
+
+Se `nan` ou `concat` for ativada, o resultado também contém `channels`, com o
+índice original de cada linha salva, e `signalUnits`, com a unidade dos
+valores.
 
 Em `batch.report`, consulte principalmente `Status`, `OutputFile` e
 `ErrorMessage`. Uma falha em uma gravação não impede o processamento das

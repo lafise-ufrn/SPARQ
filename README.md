@@ -1,18 +1,17 @@
 # SPARQ
 
-Biblioteca MATLAB para identificar trechos com ruído em gravações multicanal
-de LFP. O uso comum é feito por uma interface gráfica interativa: o sinal
-marcado ocupa a área principal e, após o processamento, um resumo compacto
-mostra as porcentagens preservada e removida. A detecção é atualizada quando um
-parâmetro é alterado, sem reiniciar o programa.
+Biblioteca MATLAB para identificar artefatos multicanal em sinais eletrofisiológicos.
+O uso comum é feito por uma interface gráfica (GUI) a qual o usuário carrega suas sessões de
+sinal gravado, demarca um trecho limpo de referência e o SPARQ retorna a matriz de sinais com
+os artefatos demarcados. Após o processamento, um resumo mostra as porcentagens preservada e removida por sessão.
+O SPARQ retorna por padrão uma máscara lógica demarcando se cada amostra do sinal é artefato (1) ou não (0).
 
 ## Requisitos
 
 Use MATLAB R2021a ou mais recente. A biblioteca aceita gravações somente em
 arquivos `.mat`.
 
-Para começar, baixe esta pasta completa e mantenha [`main.m`](main.m),
-[`SPARQ_GUI.m`](SPARQ_GUI.m) e a pasta `+SPARQ` juntos.
+Para instalar e utilizar o SPARQ, basta fazer o download da pasta em ZIP ou clonar o repositório e rodar o script 'main.m' dentro dela na IDE do MATLAB.
 
 ## Como usar
 
@@ -28,13 +27,13 @@ Para começar, baixe esta pasta completa e mantenha [`main.m`](main.m),
    esquerda, clique primeiro no início e depois no fim de um trecho sem ruído.
    O título e a mensagem inferior indicam qual clique está sendo aguardado.
 
-5. Altere os parâmetros. A interface chama novamente o mesmo núcleo científico
-   e atualiza o sinal marcado e o resumo percentual de preservação.
+5. Caso queira, altere os parâmetros para ver como eles se comportam em tempo real na sua matriz de sinais e
+ adapte-os.
 
 6. Visite cada sessão e marque sua própria referência limpa. Você pode salvar
    apenas a sessão atual ou clicar em **Salvar resultados de todas as sessões**.
    Cada sessão recebe uma pasta exclusiva em `SPARQ_results`, com o arquivo MAT
-   e a subpasta `imagens`, sem alterar os arquivos brutos.
+   e a subpasta `imagens`, sem alterar os arquivos brutos. A pasta de resultados é salva na pasta que você carregou no SPARQ, contendo as sessões utilizadas.
 
 Para abrir a interface já apontando para uma pasta, use:
 
@@ -113,8 +112,7 @@ substituindo por `NaN` as amostras marcadas.
 
 Quando uma dessas representações está habilitada, ela aparece diretamente em
 `SPARQ_result.concat` e/ou `SPARQ_result.nan`. Os campos `channels` e
-`signalUnits` identificam as linhas e a unidade dessas matrizes. O resultado em
-memória retornado pela biblioteca continua completo em `result.cleanSignals`.
+`signalUnits` identificam as linhas e a unidade dessas matrizes.
 
 Na GUI, cada sessão é salva em `SPARQ_results/<sessão>` e sua subpasta
 `imagens` recebe sempre os arquivos com sufixos `_raw.png`, `_thresholds.png`,
@@ -132,7 +130,7 @@ trocar de sessão. Para substituir uma referência já marcada, clique em
 Por segurança, um resultado existente não é substituído. Marque **Permitir
 substituir resultado SPARQ** somente quando essa for a intenção. A proteção do
 salvamento recusa qualquer tentativa de substituir o arquivo bruto ou um MAT
-que não seja um resultado SPARQ reconhecido.
+que não seja um resultado reconhecido do SPARQ.
 
 O antigo fluxo configurável em lote foi preservado em
 [`main_batch.m`](main_batch.m) para automação e compatibilidade. Ele não é mais

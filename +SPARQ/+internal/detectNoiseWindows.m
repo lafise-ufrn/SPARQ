@@ -78,12 +78,52 @@ function noise = detectNoiseWindows(time, lfp, referenceIdx, params)
         channelStd(ch)  = std(lfp(channel, referenceIdx));
     end
 
-    % --- Amostras candidatas: canais suficientes desviando ao mesmo tempo ---
-    % As transposições em vetores-coluna transmitem a linha de base de cada
-    % canal para todas as amostras.
-    validLfp        = lfp(validCh, :);
-    exceedsBaseline = abs(validLfp - channelMean') > kStd * channelStd';
-    candidateSamples = find(sum(exceedsBaseline) >= minChannels);
+    % Conta os canais candidatos incrementalmente, sem materializar a matriz
+    % lógica CxN. No mesmo passe, prepara os intervalos usados pela expansão.
+    % Isso reduz o pico de memória e evita recalcular abs(lfp - baseline).
+    candidateState = [];
+    unstableLeft = cell(1, nValid);
+    unstableRight = cell(1, nValid);
+    for ch = 1:nValid
+        channel = validCh(ch);
+        deviation = abs(lfp(channel, :) - channelMean(ch));
+        exceedsThreshold = deviation > kStd * channelStd(ch);
+        if ch == 1
+            if minChannels == 1 || minChannels == nValid
+                candidateState = exceedsThreshold;
+            else
+                candidateState = uint16(exceedsThreshold);
+            end
+        elseif minChannels == 1
+            candidateState = candidateState | exceedsThreshold;
+        elseif minChannels == nValid
+            candidateState = candidateState & exceedsThreshold;
+        else
+            candidateState = candidateState + uint16(exceedsThreshold);
+        end
+
+        candidateThreshold = kStd * channelStd(ch);
+        settleTol = settleTolStd * channelStd(ch);
+        if isequal(settleTol, candidateThreshold)
+            bad = find(exceedsThreshold);
+        else
+            bad = find(deviation > settleTol);
+        end
+        [unstableLeft{ch}, unstableRight{ch}] = ...
+            pointInfluenceIntervals(bad, settleWindow, nSamples);
+        if any(isnan(deviation))
+            valid = find(~isnan(deviation));
+            unstableLeft{ch} = mergeIntervals([unstableLeft{ch}; ...
+                allNaNIntervals(valid, settleWindow, nSamples, "left")]);
+            unstableRight{ch} = mergeIntervals([unstableRight{ch}; ...
+                allNaNIntervals(valid, settleWindow, nSamples, "right")]);
+        end
+    end
+    if minChannels == 1 || minChannels == nValid
+        candidateSamples = find(candidateState);
+    else
+        candidateSamples = find(candidateState >= minChannels);
+    end
 
     isNoise = false(1, nSamples);
 
@@ -97,32 +137,14 @@ function noise = detectNoiseWindows(time, lfp, referenceIdx, params)
             expandedLeft  = blockStarts(b);
             expandedRight = blockEnds(b);
 
-            % Expande o bloco por canal até que o sinal volte a se estabilizar
-            % dentro de sua faixa de tolerância em ambos os lados.
+            % Cada consulta salta diretamente sobre a amostra que impede a
+            % janela de ser estável. O resultado é o mesmo primeiro endpoint
+            % encontrado pelos while-loops originais.
             for ch = 1:nValid
-                channel      = validCh(ch);
-                baseline     = channelMean(ch);
-                settleTol    = settleTolStd * channelStd(ch);
-
-                idxLeft = blockStarts(b);
-                while idxLeft > 1
-                    searchStart = max(1, idxLeft - settleWindow);
-                    windowPeak = max(abs(lfp(channel, searchStart:idxLeft) - baseline));
-                    if windowPeak <= settleTol
-                        break;
-                    end
-                    idxLeft = idxLeft - 1;
-                end
-
-                idxRight = blockEnds(b);
-                while idxRight < nSamples
-                    searchEnd = min(nSamples, idxRight + settleWindow);
-                    windowPeak = max(abs(lfp(channel, idxRight:searchEnd) - baseline));
-                    if windowPeak <= settleTol
-                        break;
-                    end
-                    idxRight = idxRight + 1;
-                end
+                idxLeft = stableLeftBound( ...
+                    unstableLeft{ch}, blockStarts(b));
+                idxRight = stableRightBound( ...
+                    unstableRight{ch}, blockEnds(b), nSamples);
 
                 if idxLeft < expandedLeft
                     expandedLeft = idxLeft;
@@ -151,4 +173,78 @@ function noise = detectNoiseWindows(time, lfp, referenceIdx, params)
     noise.percentSaved = (savedSamples / nSamples) * 100;
     noise.channelMean  = channelMean;
     noise.channelStd   = channelStd;
+end
+
+% -------------------------------------------------------------------------
+function index = stableLeftBound(intervals, blockStart)
+% Localiza diretamente o primeiro endpoint estável visitado à esquerda.
+    containing = find(intervals(:, 1) <= blockStart & ...
+        intervals(:, 2) >= blockStart, 1, 'last');
+    if isempty(containing)
+        index = blockStart;
+    else
+        index = max(1, intervals(containing, 1) - 1);
+    end
+end
+
+% -------------------------------------------------------------------------
+function index = stableRightBound(intervals, blockEnd, nSamples)
+% Localiza diretamente o primeiro endpoint estável visitado à direita.
+    containing = find(intervals(:, 1) <= blockEnd & ...
+        intervals(:, 2) >= blockEnd, 1, 'last');
+    if isempty(containing)
+        index = blockEnd;
+    else
+        index = min(nSamples, intervals(containing, 2) + 1);
+    end
+end
+
+% -------------------------------------------------------------------------
+function [leftIntervals, rightIntervals] = pointInfluenceIntervals( ...
+        points, window, nSamples)
+% Une os endpoints cujas janelas contêm ao menos uma amostra instável.
+    if isempty(points)
+        leftIntervals = zeros(0, 2);
+        rightIntervals = zeros(0, 2);
+        return;
+    end
+    breaks = find(diff(points) > window + 1);
+    first = points([1, breaks + 1]);
+    last = points([breaks, end]);
+    leftIntervals = [first(:), min(nSamples, last(:) + window)];
+    rightIntervals = [max(1, first(:) - window), last(:)];
+end
+
+% -------------------------------------------------------------------------
+function intervals = allNaNIntervals(valid, window, nSamples, direction)
+% Endpoints cujas janelas são integralmente NaN (max devolve NaN).
+    padded = [0, valid, nSamples + 1];
+    gaps = find(diff(padded) > 1);
+    runStarts = padded(gaps) + 1;
+    runEnds = padded(gaps + 1) - 1;
+    if direction == "left"
+        starts = runStarts + window;
+        starts(runStarts == 1) = 1;
+        keep = starts <= runEnds;
+        intervals = [starts(keep).', runEnds(keep).'];
+    else
+        ends = runEnds - window;
+        ends(runEnds == nSamples) = nSamples;
+        keep = runStarts <= ends;
+        intervals = [runStarts(keep).', ends(keep).'];
+    end
+end
+
+% -------------------------------------------------------------------------
+function merged = mergeIntervals(intervals)
+    if isempty(intervals)
+        merged = zeros(0, 2);
+        return;
+    end
+    intervals = sortrows(intervals, [1 2]);
+    startsNew = [true; intervals(2:end, 1) > ...
+        cummax(intervals(1:end-1, 2)) + 1];
+    groups = cumsum(startsNew);
+    merged = [accumarray(groups, intervals(:, 1), [], @min), ...
+        accumarray(groups, intervals(:, 2), [], @max)];
 end

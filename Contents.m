@@ -1,7 +1,10 @@
 % SPARQ  Detection and masking of multichannel LFP noise.
 %
 % Generic data and batch APIs:
-%   main                         - Run the guided generic folder workflow.
+%   main                      - Open the interactive graphical workflow.
+%   SPARQ_GUI                 - Open/return the interactive SPARQ app.
+%   main_batch                - Run the former script-configured batch flow.
+%   SPARQ.App                 - Interactive signal/mask parameter interface.
 %   SPARQ.createSession       - Build a canonical in-memory session.
 %   SPARQ.processingOptions   - Create experiment-neutral processing options.
 %   SPARQ.createManifest      - Build an explicit batch manifest.

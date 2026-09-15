@@ -34,6 +34,25 @@ classdef test_rawFileIntegrity < matlab.unittest.TestCase
             verifyFileUnchanged(testCase, sourcePath, before);
         end
 
+        function optionalSignalOutputsPreserveRawFileByteForByte(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            sourcePath = fullfile(folder, 'recording.mat');
+            writeRecording(sourcePath);
+            writeMainCache(folder, sourcePath);
+            before = fileSnapshot(sourcePath);
+            config = mainConfig(folder);
+            config.output.includeConcat = true;
+            config.output.includeNaN = true;
+
+            batch = SPARQ.internal.runMain(config);
+
+            testCase.verifyEqual(batch.report.Status, "ok");
+            loaded = load(batch.report.OutputFile, 'SPARQ_result');
+            testCase.verifyTrue(isfield(loaded.SPARQ_result, 'concat'));
+            testCase.verifyTrue(isfield(loaded.SPARQ_result, 'nan'));
+            verifyFileUnchanged(testCase, sourcePath, before);
+        end
+
         function forceNewReferenceAndOverwritePreserveRawFile(testCase)
             [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
             sourcePath = fullfile(folder, 'recording.mat');
@@ -83,6 +102,7 @@ classdef test_rawFileIntegrity < matlab.unittest.TestCase
             before = fileSnapshot(sourcePath);
             result.sourceFile = string(sourcePath);
             result.cleanSignals.noiseMask = false(1, 10);
+            result.samplingRateHz = 1000;
             params = SPARQ.processingOptions(1);
             provenance.source = SPARQ.internal.sourceIdentity(sourcePath);
 
@@ -115,6 +135,7 @@ classdef test_rawFileIntegrity < matlab.unittest.TestCase
             writeRecording(destination);
             before = fileSnapshot(destination);
             result.cleanSignals.noiseMask = false(1, 10);
+            result.samplingRateHz = 1000;
             params = SPARQ.processingOptions(1);
 
             testCase.verifyError(@() SPARQ.io.saveResult( ...

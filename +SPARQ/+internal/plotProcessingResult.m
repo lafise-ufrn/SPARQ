@@ -3,7 +3,7 @@ function plotProcessingResult(session, result, params, maxDisplayPoints)
 %
 % Desenha as tres figuras posteriores a selecao da referencia para o fluxo
 % generico: limites por canal, ruido cross-channel e resumo de preservacao.
-% Reutiliza os mesmos componentes visuais do fluxo legado esteira/odor.
+% Quando solicitadas, acrescenta as figuras do sinal concatenado e/ou com NaN.
 
     if ~params.plot.enabled
         return;
@@ -34,4 +34,26 @@ function plotProcessingResult(session, result, params, maxDisplayPoints)
     summaryAxes = axes('Parent', summaryFigure);
     SPARQ.viz.preservationSummary(result.noise, ...
         SPARQ.internal.sessionTitle(session, params), summaryAxes);
+
+    plotOptionalSignal(session, result, params, maxDisplayPoints, ...
+        tags.concat, 'concat');
+    plotOptionalSignal(session, result, params, maxDisplayPoints, ...
+        tags.nan, 'nan');
+end
+
+% ------------------------------------------------------------------------
+function plotOptionalSignal(session, result, params, maxDisplayPoints, ...
+        figureTag, representation)
+    hasRepresentation = isfield(result, 'cleanSignals') && ...
+        isfield(result.cleanSignals, representation);
+    if ~hasRepresentation
+        staleFigures = findall(groot, 'Type', 'figure', 'Tag', figureTag);
+        delete(staleFigures);
+        return;
+    end
+
+    signalFigure = SPARQ.internal.getOrCreateFigure(figureTag);
+    signalAxes = axes('Parent', signalFigure);
+    SPARQ.internal.plotCleanSignal(signalAxes, session, result, params, ...
+        representation, maxDisplayPoints);
 end

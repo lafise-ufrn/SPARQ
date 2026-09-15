@@ -24,8 +24,7 @@ function axesHandle = preservationSummary(noise, titleText, axesHandle)
 
     barHandle = bar(axesHandle, [noise.percentSaved, noise.percentNoise], ...
         'FaceColor', 'flat');
-    barHandle.CData(1, :) = [0.00 0.45 0.74];
-    barHandle.CData(2, :) = [0.85 0.33 0.10];
+    barHandle.CData = [0.00 0.45 0.74; 0.85 0.33 0.10];
 
     set(axesHandle, 'XTick', 1:2, 'XTickLabel', {'Saved Signal', 'Discarded (Noise)'}, ...
         'FontSize', 12, 'FontWeight', 'bold');

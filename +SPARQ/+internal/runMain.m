@@ -82,12 +82,15 @@ function config = normalizeConfig(config)
     if ~isstruct(config) || ~isscalar(config)
         error('SPARQ:main:badConfig', 'config deve ser uma struct escalar.');
     end
+    userConfig = config;
     defaults.dataFolder = "";
     defaults.filePattern = "*.mat";
     defaults.inputFormat = "auto";
     defaults.loader.lfpVariable = "LFP";
-    defaults.loader.samplingRateVariable = "fs";
-    defaults.loader.samplingRateHz = [];
+    % A frequencia generica e fixa por padrao. Ler uma variavel do MAT exige
+    % que o usuario informe samplingRateVariable explicitamente.
+    defaults.loader.samplingRateVariable = "";
+    defaults.loader.samplingRateHz = 1000;
     defaults.loader.timeVariable = "";
     defaults.loader.channelLabelsVariable = "";
     defaults.loader.dataOrientation = "channels-by-samples";
@@ -107,6 +110,16 @@ function config = normalizeConfig(config)
     defaults.maxDisplayPointsPerChannel = 20000;
     defaults.plot.enabled = true;
     config = SPARQ.internal.mergeOptions(defaults, config, 'config');
+
+    % O default numerico existe somente quando nenhuma fonte de frequencia foi
+    % escolhida. Uma variavel explicitamente informada pelo usuario deve ser
+    % lida do MAT, mesmo que samplingRateHz tenha herdado o default de 1000 Hz.
+    if isfield(userConfig, 'loader') && isstruct(userConfig.loader) && ...
+            isfield(userConfig.loader, 'samplingRateVariable') && ...
+            strlength(strtrim(string( ...
+                userConfig.loader.samplingRateVariable))) > 0
+        config.loader.samplingRateHz = [];
+    end
 
     validateTextScalar(config.dataFolder, 'dataFolder', true);
     validateTextScalar(config.filePattern, 'filePattern', false);
@@ -143,38 +156,8 @@ function plotResult(session, result, params, row, config, outputRoot)
     SPARQ.internal.plotProcessingResult( ...
         session, result, params, config.maxDisplayPointsPerChannel);
     if params.plot.enabled
-        savePlotImages(row, outputRoot);
-    end
-end
-
-% ------------------------------------------------------------------------
-function savePlotImages(row, outputRoot)
-    relativeFolder = relativeToRoot(row.OutputDirectory, outputRoot);
-    imageFolder = fullfile(outputRoot, 'imagens', relativeFolder);
-    if exist(imageFolder, 'dir') ~= 7
-        mkdir(imageFolder);
-    end
-
-    imageStem = safePathSegment(row.SessionId);
-    if strlength(imageStem) == 0
-        [~, sourceStem] = fileparts(row.SourceFile);
-        imageStem = safePathSegment(sourceStem);
-    end
-
-    tags = SPARQ.internal.figureTags();
-    tagFields = {'overview', 'thresholds', 'noiseWindows', 'summary'};
-    fileSuffixes = {'raw', 'thresholds', 'noise_windows', ...
-        'saved_percentage'};
-    drawnow;
-    for i = 1:numel(tagFields)
-        figureHandle = findall(groot, 'Type', 'figure', ...
-            'Tag', tags.(tagFields{i}));
-        if isempty(figureHandle)
-            continue;
-        end
-        imageFile = fullfile(imageFolder, sprintf('%s_%s.png', ...
-            imageStem, fileSuffixes{i}));
-        exportgraphics(figureHandle(1), imageFile);
+        SPARQ.internal.savePlotImages( ...
+            row, outputRoot, config.overwriteResults);
     end
 end
 

@@ -7,13 +7,13 @@ function tags = figureTags()
 % lugar evita que strings literais fiquem dessincronizadas.
 %
 % SAIDAS:
-%   tags = estrutura com os campos .overview, .thresholds, .noiseWindows,
- %          .summary, cada um em uma string unica para que a mesma janela
- %          seja reutilizada.
+%   tags = estrutura com uma string unica por funcao de grafico para que a
+%          mesma janela seja reutilizada entre sessoes.
 
     tags.overview     = 'SPARQ:overview';
     tags.thresholds   = 'SPARQ:thresholds';
     tags.noiseWindows = 'SPARQ:noiseWindows';
     tags.summary      = 'SPARQ:summary';
+    tags.concat       = 'SPARQ:concat';
+    tags.nan          = 'SPARQ:nan';
 end
-

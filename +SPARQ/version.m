@@ -9,5 +9,5 @@ function info = version()
     info.name = "SPARQ";
     info.version = "0.3.0-beta.1";
     info.status = "beta";
-    info.resultSchemaVersion = "1.0";
+    info.resultSchemaVersion = "2.0";
 end

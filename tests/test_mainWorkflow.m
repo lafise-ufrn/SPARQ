@@ -39,6 +39,45 @@ classdef test_mainWorkflow < matlab.unittest.TestCase
             testCase.verifyFalse(params.output.includeConcat);
         end
 
+        function genericMainUsesFixed1000HzByDefault(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            sourceFile = fullfile(folder, 'recording.mat');
+            writeRecordingWithoutSamplingRate(sourceFile);
+            outputRoot = fullfile(folder, 'SPARQ_results');
+            writeReferenceCacheFixture(fullfile(outputRoot, ...
+                '.reference_cache', 'recording_reference.mat'), ...
+                sourceFile, 400, [0 0.399], [0 0.099]);
+
+            config.dataFolder = string(folder);
+            config.plot.enabled = false;
+            config.detection.minSimultaneousChannels = 2;
+            batch = SPARQ.internal.runMain(config);
+
+            testCase.verifyEqual(batch.report.Status, "ok");
+            testCase.verifyEqual(batch.report.SamplingRateHz, 1000);
+            testCase.verifyEqual(batch.report.DurationSeconds, 399/1000);
+        end
+
+        function genericMainRespectsExplicitFrequencyVariable(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            sourceFile = fullfile(folder, 'recording.mat');
+            writeRecordingWithSamplingRate(sourceFile, 250);
+            outputRoot = fullfile(folder, 'SPARQ_results');
+            writeReferenceCacheFixture(fullfile(outputRoot, ...
+                '.reference_cache', 'recording_reference.mat'), ...
+                sourceFile, 400, [0 399/250], [0 99/250]);
+
+            config.dataFolder = string(folder);
+            config.plot.enabled = false;
+            config.detection.minSimultaneousChannels = 2;
+            config.loader.samplingRateVariable = "fs";
+            batch = SPARQ.internal.runMain(config);
+
+            testCase.verifyEqual(batch.report.Status, "ok");
+            testCase.verifyEqual(batch.report.SamplingRateHz, 250);
+            testCase.verifyEqual(batch.report.DurationSeconds, 399/250);
+        end
+
         function interactiveReferenceReusesValidatedManualCache(testCase)
             [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
             sourceFile = fullfile(folder, 'recording.mat');
@@ -90,14 +129,11 @@ classdef test_mainWorkflow < matlab.unittest.TestCase
                 batch.report.OutputFile, "_clean.mat")));
 
             saved = load(batch.report.OutputFile(1), 'SPARQ_result');
-            cleanSignals = saved.SPARQ_result.result.cleanSignals;
-            testCase.verifyClass(cleanSignals.noiseMask, 'logical');
-            testCase.verifySize(cleanSignals.noiseMask, [1 400]);
-            testCase.verifyFalse(isfield(cleanSignals, 'concat'));
-            testCase.verifyFalse(isfield(cleanSignals, 'nan'));
-            testCase.verifyEqual( ...
-                saved.SPARQ_result.provenance.reference.method, ...
-                "interactive-selection");
+            testCase.verifyClass(saved.SPARQ_result.noiseMask, 'logical');
+            testCase.verifySize(saved.SPARQ_result.noiseMask, [1 400]);
+            testCase.verifyFalse(isfield(saved.SPARQ_result, 'concat'));
+            testCase.verifyFalse(isfield(saved.SPARQ_result, 'nan'));
+            testCase.verifyEqual(saved.SPARQ_result.schemaVersion, "2.0");
         end
 
         function genericMainSavesAllPlotImages(testCase)
@@ -128,6 +164,116 @@ classdef test_mainWorkflow < matlab.unittest.TestCase
                 "recording_thresholds.png", ...
                 "recording_noise_windows.png", ...
                 "recording_saved_percentage.png"]));
+        end
+
+        function genericMainSavesOptionalSignalsAndPlotImages(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            previousVisibility = get(groot, 'DefaultFigureVisible');
+            set(groot, 'DefaultFigureVisible', 'off');
+            figureCleanup = onCleanup(@() cleanUpPlotFigures( ...
+                previousVisibility));
+            combinations = logical([1 0; 0 1; 1 1]);
+
+            for i = 1:size(combinations, 1)
+                caseFolder = fullfile(folder, sprintf('case-%d', i));
+                mkdir(caseFolder);
+                sourceFile = fullfile(caseFolder, 'recording.mat');
+                writeRecording(sourceFile);
+                outputRoot = fullfile(caseFolder, 'SPARQ_results');
+                writeReferenceCacheFixture(fullfile(outputRoot, ...
+                    '.reference_cache', 'recording_reference.mat'), ...
+                    sourceFile, 400, [0 0.399], [0 0.099]);
+
+                config = baseConfig(caseFolder);
+                config.plot.enabled = true;
+                config.output.includeConcat = combinations(i, 1);
+                config.output.includeNaN = combinations(i, 2);
+                batch = SPARQ.internal.runMain(config);
+
+                testCase.verifyEqual(batch.report.Status, "ok");
+                loaded = load(batch.report.OutputFile, 'SPARQ_result');
+                saved = loaded.SPARQ_result;
+                inMemory = batch.results{1}.cleanSignals;
+                testCase.verifyEqual(isfield(saved, 'concat'), ...
+                    combinations(i, 1));
+                testCase.verifyEqual(isfield(saved, 'nan'), ...
+                    combinations(i, 2));
+                if combinations(i, 1)
+                    testCase.verifyEqual(saved.concat, inMemory.concat);
+                end
+                if combinations(i, 2)
+                    testCase.verifyEqual(saved.nan, inMemory.nan);
+                end
+
+                baseNames = ["recording_raw.png", ...
+                    "recording_thresholds.png", ...
+                    "recording_noise_windows.png", ...
+                    "recording_saved_percentage.png"];
+                optionalNames = ["recording_concat.png", ...
+                    "recording_nan.png"];
+                expectedNames = [baseNames, ...
+                    optionalNames(combinations(i, :))];
+                imageFiles = dir(fullfile(outputRoot, 'imagens', ...
+                    'recording_*.png'));
+                testCase.verifyNumElements(imageFiles, numel(expectedNames));
+                testCase.verifyTrue(all([imageFiles.bytes] > 0));
+                testCase.verifyEqual(sort(string({imageFiles.name})), ...
+                    sort(expectedNames));
+
+                tags = SPARQ.internal.figureTags();
+                testCase.verifyEqual(~isempty(findall(groot, 'Type', ...
+                    'figure', 'Tag', tags.concat)), combinations(i, 1));
+                testCase.verifyEqual(~isempty(findall(groot, 'Type', ...
+                    'figure', 'Tag', tags.nan)), combinations(i, 2));
+            end
+        end
+
+        function genericMainProtectsPlotImagesUnlessOverwriteEnabled(testCase)
+            [folder, cleanupObject] = temporaryFolder(); %#ok<ASGLU>
+            sourceFile = fullfile(folder, 'recording.mat');
+            writeRecording(sourceFile);
+            outputRoot = fullfile(folder, 'SPARQ_results');
+            writeReferenceCacheFixture(fullfile(outputRoot, ...
+                '.reference_cache', 'recording_reference.mat'), ...
+                sourceFile, 400, [0 0.399], [0 0.099]);
+
+            previousVisibility = get(groot, 'DefaultFigureVisible');
+            set(groot, 'DefaultFigureVisible', 'off');
+            figureCleanup = onCleanup(@() cleanUpPlotFigures( ...
+                previousVisibility));
+
+            config = baseConfig(folder);
+            config.plot.enabled = true;
+            firstBatch = SPARQ.internal.runMain(config);
+            testCase.verifyEqual(firstBatch.report.Status, "ok");
+
+            imageFolder = fullfile(outputRoot, 'imagens');
+            imageFiles = fullfile(imageFolder, [ ...
+                "recording_raw.png", ...
+                "recording_thresholds.png", ...
+                "recording_noise_windows.png", ...
+                "recording_saved_percentage.png"]);
+            sentinel = uint8('existing-image-must-not-change');
+            writeFileBytes(imageFiles(1), sentinel);
+            bytesBefore = cellfun(@readFileBytes, cellstr(imageFiles), ...
+                'UniformOutput', false);
+
+            protectedBatch = SPARQ.internal.runMain(config);
+
+            testCase.verifyEqual(protectedBatch.report.Status, "failed");
+            testCase.verifyEqual(protectedBatch.report.ErrorIdentifier, ...
+                "SPARQ:main:imageExists");
+            bytesAfter = cellfun(@readFileBytes, cellstr(imageFiles), ...
+                'UniformOutput', false);
+            testCase.verifyEqual(bytesAfter, bytesBefore);
+
+            config.overwriteResults = true;
+            overwrittenBatch = SPARQ.internal.runMain(config);
+
+            testCase.verifyEqual(overwrittenBatch.report.Status, "ok");
+            testCase.verifyFalse(isequal( ...
+                readFileBytes(imageFiles(1)), sentinel));
+            testCase.verifyTrue(all(isfile(imageFiles)));
         end
 
         function genericMainExpandsRealDataIntoIndependentSessions(testCase)
@@ -245,6 +391,23 @@ function writeRecording(filePath)
 end
 
 % ------------------------------------------------------------------------
+function writeRecordingWithoutSamplingRate(filePath)
+    time = (0:399) / 1000;
+    LFP = repmat(sin(2 * pi * 8 * time), 4, 1);
+    LFP(:, 250:270) = LFP(:, 250:270) + 10;
+    save(filePath, 'LFP');
+end
+
+% ------------------------------------------------------------------------
+function writeRecordingWithSamplingRate(filePath, samplingRateHz)
+    fs = samplingRateHz;
+    time = (0:399) / fs;
+    LFP = repmat(sin(2 * pi * 8 * time), 4, 1);
+    LFP(:, 250:270) = LFP(:, 250:270) + 10;
+    save(filePath, 'LFP', 'fs');
+end
+
+% ------------------------------------------------------------------------
 function [folder, cleanupObject] = temporaryFolder()
     folder = tempname;
     mkdir(folder);
@@ -256,6 +419,28 @@ function removeTemporaryFolder(folder)
     if exist(folder, 'dir') == 7
         rmdir(folder, 's');
     end
+end
+
+% ------------------------------------------------------------------------
+function bytes = readFileBytes(filePath)
+    fileId = fopen(filePath, 'rb');
+    if fileId < 0
+        error('SPARQ:tests:fileOpenFailed', ...
+            'Nao foi possivel abrir o arquivo: %s', filePath);
+    end
+    cleanupObject = onCleanup(@() fclose(fileId));
+    bytes = fread(fileId, Inf, '*uint8');
+end
+
+% ------------------------------------------------------------------------
+function writeFileBytes(filePath, bytes)
+    fileId = fopen(filePath, 'wb');
+    if fileId < 0
+        error('SPARQ:tests:fileOpenFailed', ...
+            'Nao foi possivel abrir o arquivo: %s', filePath);
+    end
+    cleanupObject = onCleanup(@() fclose(fileId));
+    fwrite(fileId, bytes, 'uint8');
 end
 
 % ------------------------------------------------------------------------

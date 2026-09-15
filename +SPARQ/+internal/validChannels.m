@@ -22,6 +22,7 @@ function channels = validChannels(params)
 %     (vetores de média/desvio-padrão, matrizes de sinais limpos); mantenha-a
 %     estável.
 
-    channels = setdiff(1:params.channels.count, params.channels.excluded);
-    channels = channels(:).';   % garante um vetor linha
+    keep = true(1, params.channels.count);
+    keep(params.channels.excluded) = false;
+    channels = find(keep);
 end

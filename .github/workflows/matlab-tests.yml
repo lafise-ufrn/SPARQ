@@ -28,6 +28,7 @@ jobs:
       - name: Run unit and integration tests
         uses: matlab-actions/run-tests@v3
         with:
+          source-folder: .
           select-by-folder: tests
           test-results-junit: test-results/results.xml
           output-detail: detailed
